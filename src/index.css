@@ -1,1 +1,28 @@
 @import "tailwindcss";
+
+:root {
+  color: #f7f2e8;
+  font-family:
+    "Iowan Old Style",
+    "Palatino Linotype",
+    "Book Antiqua",
+    Georgia,
+    serif;
+  background:
+    radial-gradient(circle at top, rgba(251, 191, 36, 0.18), transparent 34%),
+    radial-gradient(circle at 85% 15%, rgba(251, 146, 60, 0.16), transparent 28%),
+    linear-gradient(180deg, #18120f 0%, #0d0a08 100%);
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background: transparent;
+}
+
+#root {
+  min-height: 100vh;
+}
