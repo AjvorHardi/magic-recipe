@@ -12,6 +12,39 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function isRecipe(value: unknown): value is Recipe {
+  if (!isObject(value)) {
+    return false
+  }
+
+  return (
+    typeof value.title === 'string' &&
+    typeof value.description === 'string' &&
+    (value.cookTimeMinutes === null ||
+      (typeof value.cookTimeMinutes === 'number' &&
+        Number.isInteger(value.cookTimeMinutes))) &&
+    (value.difficulty === null ||
+      value.difficulty === 'easy' ||
+      value.difficulty === 'medium' ||
+      value.difficulty === 'hard') &&
+    isStringArray(value.ingredients) &&
+    isStringArray(value.steps)
+  )
+}
+
+function isCachedRecipe(value: unknown): value is CachedRecipe {
+  return (
+    isObject(value) &&
+    typeof value.key === 'string' &&
+    typeof value.cachedAt === 'string' &&
+    isRecipe(value.recipe)
+  )
+}
+
 export function getRecipeCacheKey(ingredients: string[]): string {
   return ingredients
     .map(getIngredientKey)
@@ -48,7 +81,9 @@ export function loadRecipeCache(): RecipeCache {
       return {}
     }
 
-    return parsedValue as RecipeCache
+    return Object.fromEntries(
+      Object.entries(parsedValue).filter(([, value]) => isCachedRecipe(value)),
+    ) as RecipeCache
   } catch {
     return {}
   }

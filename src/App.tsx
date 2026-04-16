@@ -48,6 +48,7 @@ function App() {
   const [recipe, setRecipe] = useState<Recipe | null>(null)
   const [recipeCache, setRecipeCache] = useState<RecipeCache>({})
   const [bookmarks, setBookmarks] = useState<BookmarkedRecipe[]>([])
+  const [cacheMessage, setCacheMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [bookmarkMessage, setBookmarkMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -91,6 +92,7 @@ function App() {
 
     setIngredients((currentIngredients) => [...currentIngredients, result.ingredient])
     setIngredientInput('')
+    setCacheMessage(null)
     setErrorMessage(null)
     setBookmarkMessage(null)
   }
@@ -99,6 +101,7 @@ function App() {
     setIngredients((currentIngredients) =>
       currentIngredients.filter((ingredient) => ingredient !== ingredientToRemove),
     )
+    setCacheMessage(null)
     setErrorMessage(null)
     setBookmarkMessage(null)
   }
@@ -163,12 +166,14 @@ function App() {
     const cachedRecipe = recipeCache[cacheKey]
 
     if (cachedRecipe) {
+      setCacheMessage('Loaded a saved result for this ingredient combination.')
       setErrorMessage(null)
       setRecipe(cachedRecipe.recipe)
       return
     }
 
     setIsLoading(true)
+    setCacheMessage(null)
     setErrorMessage(null)
     setRecipe(null)
 
@@ -179,8 +184,14 @@ function App() {
         [cacheKey]: createCachedRecipe(ingredients, nextRecipe),
       }
 
-      saveRecipeCache(nextCache)
+      const didSaveCache = saveRecipeCache(nextCache)
+
       setRecipeCache(nextCache)
+
+      if (!didSaveCache) {
+        setCacheMessage('This recipe could not be cached on this device right now.')
+      }
+
       setRecipe(nextRecipe)
     } catch (error) {
       if (error instanceof Error) {
@@ -229,6 +240,12 @@ function App() {
         {errorMessage ? (
           <section className="rounded-[1.75rem] border border-rose-300/20 bg-rose-950/40 px-5 py-4 text-sm leading-6 text-rose-100">
             {errorMessage}
+          </section>
+        ) : null}
+
+        {cacheMessage ? (
+          <section className="rounded-[1.75rem] border border-sky-300/20 bg-sky-950/25 px-5 py-4 text-sm leading-6 text-sky-100">
+            {cacheMessage}
           </section>
         ) : null}
 
