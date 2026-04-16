@@ -9,6 +9,12 @@ import {
   validateIngredientForAdd,
 } from '../lib/ingredients.ts'
 import {
+  createCachedRecipe,
+  getRecipeCacheKey,
+  loadRecipeCache,
+  saveRecipeCache,
+} from './lib/cache.ts'
+import {
   createBookmarkedRecipe,
   getBookmarkedRecipeId,
   loadBookmarks,
@@ -19,6 +25,7 @@ import { IngredientForm } from './components/IngredientForm.tsx'
 import { IngredientList } from './components/IngredientList.tsx'
 import { RecipeCard } from './components/RecipeCard.tsx'
 import { generateRecipe } from './lib/api.ts'
+import type { RecipeCache } from './types/cache.ts'
 import type { BookmarkedRecipe } from './types/bookmarks.ts'
 import type { Recipe } from './types/recipe.ts'
 
@@ -39,10 +46,15 @@ function App() {
   const [ingredientInput, setIngredientInput] = useState('')
   const [ingredients, setIngredients] = useState<string[]>([])
   const [recipe, setRecipe] = useState<Recipe | null>(null)
+  const [recipeCache, setRecipeCache] = useState<RecipeCache>({})
   const [bookmarks, setBookmarks] = useState<BookmarkedRecipe[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [bookmarkMessage, setBookmarkMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    setRecipeCache(loadRecipeCache())
+  }, [])
 
   useEffect(() => {
     setBookmarks(loadBookmarks())
@@ -147,12 +159,28 @@ function App() {
       return
     }
 
+    const cacheKey = getRecipeCacheKey(ingredients)
+    const cachedRecipe = recipeCache[cacheKey]
+
+    if (cachedRecipe) {
+      setErrorMessage(null)
+      setRecipe(cachedRecipe.recipe)
+      return
+    }
+
     setIsLoading(true)
     setErrorMessage(null)
     setRecipe(null)
 
     try {
       const nextRecipe = await generateRecipe({ ingredients })
+      const nextCache = {
+        ...recipeCache,
+        [cacheKey]: createCachedRecipe(ingredients, nextRecipe),
+      }
+
+      saveRecipeCache(nextCache)
+      setRecipeCache(nextCache)
       setRecipe(nextRecipe)
     } catch (error) {
       if (error instanceof Error) {
