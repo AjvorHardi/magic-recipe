@@ -1,6 +1,6 @@
 # Magic Recipe
 
-Magic Recipe is an MVP web app that suggests a recipe from a user's ingredient list using OpenAI.
+Magic Recipe is a web app that suggests a recipe from a user's ingredient list using OpenAI.
 
 ## Stack
 
