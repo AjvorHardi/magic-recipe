@@ -13,6 +13,9 @@ import {
 } from './_lib/recipeSchema.ts'
 
 const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini'
+const JSON_RESPONSE_HEADERS = {
+  'cache-control': 'no-store',
+} as const
 
 type ApiErrorCode =
   | 'BAD_REQUEST'
@@ -29,13 +32,20 @@ type ApiErrorResponse = {
 }
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
-  return Response.json(body, init)
+  return Response.json(body, {
+    ...init,
+    headers: {
+      ...JSON_RESPONSE_HEADERS,
+      ...Object.fromEntries(new Headers(init?.headers).entries()),
+    },
+  })
 }
 
 function errorResponse(
   status: number,
   code: ApiErrorCode,
   message: string,
+  init?: ResponseInit,
 ): Response {
   const body: ApiErrorResponse = {
     error: {
@@ -44,7 +54,17 @@ function errorResponse(
     },
   }
 
-  return jsonResponse(body, { status })
+  return jsonResponse(body, {
+    ...init,
+    status,
+  })
+}
+
+class ConfigurationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ConfigurationError'
+  }
 }
 
 function isMockRecipeModeEnabled(): boolean {
@@ -55,7 +75,7 @@ function getOpenAIClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY
 
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not configured.')
+    throw new ConfigurationError('OPENAI_API_KEY is not configured.')
   }
 
   return new OpenAI({ apiKey })
@@ -100,7 +120,16 @@ async function generateRecipeWithOpenAI(
 
 async function createRecipeResponse(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
-    return errorResponse(405, 'BAD_REQUEST', 'Only POST requests are supported.')
+    return errorResponse(
+      405,
+      'BAD_REQUEST',
+      'Only POST requests are supported.',
+      {
+        headers: {
+          allow: 'POST',
+        },
+      },
+    )
   }
 
   let requestBody: unknown
@@ -132,6 +161,16 @@ async function createRecipeResponse(request: Request): Promise<Response> {
         502,
         'INVALID_RESPONSE',
         'We could not generate a valid recipe right now. Please try again.',
+      )
+    }
+
+    if (error instanceof ConfigurationError) {
+      console.error('Recipe route configuration error.', error)
+
+      return errorResponse(
+        500,
+        'INTERNAL_ERROR',
+        'Something went wrong on our side. Please try again.',
       )
     }
 
