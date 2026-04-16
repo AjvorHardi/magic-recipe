@@ -1,10 +1,28 @@
 import type {
   GenerateRecipeErrorResponse,
+  GenerateRecipeErrorCode,
   GenerateRecipeRequest,
   GenerateRecipeResponse,
   GenerateRecipeSuccessResponse,
 } from '../types/api.ts'
 import type { Recipe } from '../types/recipe.ts'
+
+export type GenerateRecipeClientErrorCode =
+  | GenerateRecipeErrorCode
+  | 'NETWORK_ERROR'
+  | 'UNREADABLE_RESPONSE'
+  | 'UNEXPECTED_RESPONSE'
+  | 'ROUTE_NOT_FOUND'
+
+export class GenerateRecipeClientError extends Error {
+  code: GenerateRecipeClientErrorCode
+
+  constructor(code: GenerateRecipeClientErrorCode, message: string) {
+    super(message)
+    this.name = 'GenerateRecipeClientError'
+    this.code = code
+  }
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -67,7 +85,8 @@ export async function generateRecipe(
       body: JSON.stringify(payload),
     })
   } catch {
-    throw new Error(
+    throw new GenerateRecipeClientError(
+      'NETWORK_ERROR',
       'We could not reach the recipe service. Check your connection and try again.',
     )
   }
@@ -78,30 +97,41 @@ export async function generateRecipe(
 
   if (!contentType.includes('application/json')) {
     if (response.status === 404) {
-      throw new Error(
+      throw new GenerateRecipeClientError(
+        'ROUTE_NOT_FOUND',
         'Recipe API route was not found. For full local testing, start the app with npm run dev:vercel.',
       )
     }
 
-    throw new Error('The server returned an unreadable response. Please try again.')
+    throw new GenerateRecipeClientError(
+      'UNREADABLE_RESPONSE',
+      'The server returned an unreadable response. Please try again.',
+    )
   }
 
   try {
     data = (await response.json()) as GenerateRecipeResponse
   } catch {
-    throw new Error('The server returned an unreadable response. Please try again.')
+    throw new GenerateRecipeClientError(
+      'UNREADABLE_RESPONSE',
+      'The server returned an unreadable response. Please try again.',
+    )
   }
 
   if (!response.ok) {
     if (isGenerateRecipeErrorResponse(data)) {
-      throw new Error(data.error.message)
+      throw new GenerateRecipeClientError(data.error.code, data.error.message)
     }
 
-    throw new Error('Recipe generation failed. Please try again.')
+    throw new GenerateRecipeClientError(
+      'UNEXPECTED_RESPONSE',
+      'Recipe generation failed. Please try again.',
+    )
   }
 
   if (!isGenerateRecipeSuccessResponse(data)) {
-    throw new Error(
+    throw new GenerateRecipeClientError(
+      'UNEXPECTED_RESPONSE',
       'We received an unexpected recipe format from the server. Please try again.',
     )
   }
