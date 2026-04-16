@@ -13,10 +13,15 @@ import {
 } from './_lib/recipeSchema.ts'
 
 const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini'
+const JSON_RESPONSE_HEADERS = {
+  'cache-control': 'no-store',
+} as const
 
 type ApiErrorCode =
   | 'BAD_REQUEST'
+  | 'MISSING_API_KEY'
   | 'RATE_LIMIT'
+  | 'QUOTA_EXCEEDED'
   | 'UPSTREAM_ERROR'
   | 'INVALID_RESPONSE'
   | 'INTERNAL_ERROR'
@@ -29,13 +34,20 @@ type ApiErrorResponse = {
 }
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
-  return Response.json(body, init)
+  return Response.json(body, {
+    ...init,
+    headers: {
+      ...JSON_RESPONSE_HEADERS,
+      ...Object.fromEntries(new Headers(init?.headers).entries()),
+    },
+  })
 }
 
 function errorResponse(
   status: number,
   code: ApiErrorCode,
   message: string,
+  init?: ResponseInit,
 ): Response {
   const body: ApiErrorResponse = {
     error: {
@@ -44,7 +56,17 @@ function errorResponse(
     },
   }
 
-  return jsonResponse(body, { status })
+  return jsonResponse(body, {
+    ...init,
+    status,
+  })
+}
+
+class ConfigurationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ConfigurationError'
+  }
 }
 
 function isMockRecipeModeEnabled(): boolean {
@@ -55,7 +77,7 @@ function getOpenAIClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY
 
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not configured.')
+    throw new ConfigurationError('OPENAI_API_KEY is not configured.')
   }
 
   return new OpenAI({ apiKey })
@@ -75,6 +97,21 @@ function buildRecipePrompt(ingredients: string[]): string {
     'Return one practical recipe suitable for a home cook.',
     'Keep the recipe concise and useful.',
   ].join('\n')
+}
+
+function isQuotaExceededError(
+  error: InstanceType<typeof OpenAI.APIError>,
+): boolean {
+  const errorMessage = error.message.toLocaleLowerCase()
+
+  return (
+    error.status === 429 &&
+    (error.code === 'insufficient_quota' ||
+      error.type === 'insufficient_quota' ||
+      errorMessage.includes('exceeded your current quota') ||
+      errorMessage.includes('billing') ||
+      errorMessage.includes('credits'))
+  )
 }
 
 async function generateRecipeWithOpenAI(
@@ -100,7 +137,16 @@ async function generateRecipeWithOpenAI(
 
 async function createRecipeResponse(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
-    return errorResponse(405, 'BAD_REQUEST', 'Only POST requests are supported.')
+    return errorResponse(
+      405,
+      'BAD_REQUEST',
+      'Only POST requests are supported.',
+      {
+        headers: {
+          allow: 'POST',
+        },
+      },
+    )
   }
 
   let requestBody: unknown
@@ -135,8 +181,42 @@ async function createRecipeResponse(request: Request): Promise<Response> {
       )
     }
 
+    if (error instanceof ConfigurationError) {
+      console.error('Recipe route configuration error.', error)
+
+      return errorResponse(
+        500,
+        'MISSING_API_KEY',
+        'Missing API key. Set OPENAI_API_KEY in your environment, then restart the server.',
+      )
+    }
+
     if (error instanceof OpenAI.APIError) {
+      if (isQuotaExceededError(error)) {
+        console.error('OpenAI quota exceeded while generating recipe.', {
+          status: error.status,
+          code: error.code,
+          type: error.type,
+          name: error.name,
+          requestId: error.requestID,
+        })
+
+        return errorResponse(
+          429,
+          'QUOTA_EXCEEDED',
+          'Recipe generation is unavailable for this API project right now. Check API billing and limits, then try again.',
+        )
+      }
+
       if (error.status === 429) {
+        console.error('OpenAI rate limit while generating recipe.', {
+          status: error.status,
+          code: error.code,
+          type: error.type,
+          name: error.name,
+          requestId: error.requestID,
+        })
+
         return errorResponse(
           429,
           'RATE_LIMIT',

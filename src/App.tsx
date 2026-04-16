@@ -24,10 +24,18 @@ import { BookmarksList } from './components/BookmarksList.tsx'
 import { IngredientForm } from './components/IngredientForm.tsx'
 import { IngredientList } from './components/IngredientList.tsx'
 import { RecipeCard } from './components/RecipeCard.tsx'
-import { generateRecipe } from './lib/api.ts'
+import {
+  GenerateRecipeClientError,
+  generateRecipe,
+} from './lib/api.ts'
 import type { RecipeCache } from './types/cache.ts'
 import type { BookmarkedRecipe } from './types/bookmarks.ts'
 import type { Recipe } from './types/recipe.ts'
+
+type AppMessage = {
+  title: string
+  body: string
+}
 
 function getAddIngredientErrorMessage(issue: IngredientAddIssue): string {
   switch (issue) {
@@ -42,6 +50,67 @@ function getAddIngredientErrorMessage(issue: IngredientAddIssue): string {
   }
 }
 
+function getRecipeErrorMessage(error: GenerateRecipeClientError): AppMessage {
+  switch (error.code) {
+    case 'MISSING_API_KEY':
+      return {
+        title: 'Missing API Key',
+        body: error.message,
+      }
+    case 'RATE_LIMIT':
+      return {
+        title: 'Rate Limit Reached',
+        body: 'Recipe generation is busy right now. Wait a moment, then try again.',
+      }
+    case 'QUOTA_EXCEEDED':
+      return {
+        title: 'API Quota Unavailable',
+        body: 'This API project cannot generate recipes right now. Check API billing and usage limits, then try again.',
+      }
+    case 'UPSTREAM_ERROR':
+      return {
+        title: 'OpenAI Is Unavailable',
+        body: 'The recipe provider is temporarily unavailable. Try again in a moment.',
+      }
+    case 'INVALID_RESPONSE':
+      return {
+        title: 'Invalid Recipe Response',
+        body: 'The AI returned a recipe we could not trust. Please try again.',
+      }
+    case 'ROUTE_NOT_FOUND':
+      return {
+        title: 'Local API Route Missing',
+        body: error.message,
+      }
+    case 'NETWORK_ERROR':
+      return {
+        title: 'Connection Problem',
+        body: error.message,
+      }
+    case 'UNREADABLE_RESPONSE':
+      return {
+        title: 'Unreadable Server Response',
+        body: error.message,
+      }
+    case 'UNEXPECTED_RESPONSE':
+      return {
+        title: 'Unexpected Server Response',
+        body: error.message,
+      }
+    case 'BAD_REQUEST':
+      return {
+        title: 'Request Rejected',
+        body: error.message,
+      }
+    case 'INTERNAL_ERROR':
+    default:
+      return {
+        title: 'Recipe Generation Failed',
+        body: error.message,
+      }
+  }
+}
+
 function App() {
   const [ingredientInput, setIngredientInput] = useState('')
   const [ingredients, setIngredients] = useState<string[]>([])
@@ -49,7 +118,7 @@ function App() {
   const [recipeCache, setRecipeCache] = useState<RecipeCache>({})
   const [bookmarks, setBookmarks] = useState<BookmarkedRecipe[]>([])
   const [cacheMessage, setCacheMessage] = useState<string | null>(null)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<AppMessage | null>(null)
   const [bookmarkMessage, setBookmarkMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -86,7 +155,10 @@ function App() {
     const result = validateIngredientForAdd(ingredients, ingredientInput)
 
     if (!result.ok) {
-      setErrorMessage(getAddIngredientErrorMessage(result.issue))
+      setErrorMessage({
+        title: 'Check Ingredients',
+        body: getAddIngredientErrorMessage(result.issue),
+      })
       return
     }
 
@@ -157,7 +229,10 @@ function App() {
 
     if (!isIngredientCountValid(ingredients)) {
       setErrorMessage(
-        `Add between ${MIN_INGREDIENTS} and ${MAX_INGREDIENTS} ingredients before generating a recipe.`,
+        {
+          title: 'More Ingredients Needed',
+          body: `Add between ${MIN_INGREDIENTS} and ${MAX_INGREDIENTS} ingredients before generating a recipe.`,
+        },
       )
       return
     }
@@ -194,10 +269,18 @@ function App() {
 
       setRecipe(nextRecipe)
     } catch (error) {
-      if (error instanceof Error) {
-        setErrorMessage(error.message)
+      if (error instanceof GenerateRecipeClientError) {
+        setErrorMessage(getRecipeErrorMessage(error))
+      } else if (error instanceof Error) {
+        setErrorMessage({
+          title: 'Recipe Generation Failed',
+          body: error.message,
+        })
       } else {
-        setErrorMessage('Recipe generation failed. Please try again.')
+        setErrorMessage({
+          title: 'Recipe Generation Failed',
+          body: 'Recipe generation failed. Please try again.',
+        })
       }
     } finally {
       setIsLoading(false)
@@ -239,7 +322,10 @@ function App() {
 
         {errorMessage ? (
           <section className="rounded-[1.75rem] border border-rose-300/20 bg-rose-950/40 px-5 py-4 text-sm leading-6 text-rose-100">
-            {errorMessage}
+            <p className="font-semibold uppercase tracking-[0.2em] text-rose-200">
+              {errorMessage.title}
+            </p>
+            <p className="mt-2">{errorMessage.body}</p>
           </section>
         ) : null}
 
