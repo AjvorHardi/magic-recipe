@@ -6,6 +6,7 @@ Current client-side features:
 
 - ingredient entry with trim and duplicate prevention
 - recipe generation through one Vercel API route
+- local recipe caching for repeated ingredient combinations
 - mock recipe mode for local development
 - saved recipe bookmarks with `localStorage`
 
@@ -18,7 +19,7 @@ Current client-side features:
 
 ## Current Status
 
-Phase 0 through Phase 5 are complete:
+Phase 0 through Phase 6 are complete:
 
 - baseline cleanup
 - contract and validation setup
@@ -26,6 +27,7 @@ Phase 0 through Phase 5 are complete:
 - frontend single-page MVP
 - deploy-readiness and smoke-test pass
 - bookmark saved recipes locally and reopen them later
+- cache repeated ingredient combinations locally to avoid duplicate AI requests
 
 ## Environment Variables
 
@@ -62,7 +64,8 @@ Recommended full-stack local workflow:
 3. Run `npm run dev:vercel`
 4. Open the local URL printed by Vercel
 5. Add at least two ingredients and click `Do magic`
-6. Save a recipe bookmark and refresh the page to confirm it persists
+6. Repeat the same ingredient combination in a different order and confirm it loads from cache
+7. Save a recipe bookmark and refresh the page to confirm it persists
 
 Recommended quick verification commands:
 
@@ -102,6 +105,7 @@ npx vercel --prod
 - open the production URL
 - add 2 to 4 ingredients
 - generate a recipe
+- repeat the same ingredient combination and confirm it loads quickly from cache
 - save and reopen a bookmark
 - verify the result card, error handling, expandable steps, and bookmark persistence
 
