@@ -52,6 +52,11 @@ function getAddIngredientErrorMessage(issue: IngredientAddIssue): string {
 
 function getRecipeErrorMessage(error: GenerateRecipeClientError): AppMessage {
   switch (error.code) {
+    case 'MISSING_API_KEY':
+      return {
+        title: 'Missing API Key',
+        body: error.message,
+      }
     case 'RATE_LIMIT':
       return {
         title: 'Rate Limit Reached',

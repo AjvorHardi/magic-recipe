@@ -6,6 +6,7 @@ export type GenerateRecipeRequest = {
 
 export type GenerateRecipeErrorCode =
   | 'BAD_REQUEST'
+  | 'MISSING_API_KEY'
   | 'RATE_LIMIT'
   | 'QUOTA_EXCEEDED'
   | 'UPSTREAM_ERROR'

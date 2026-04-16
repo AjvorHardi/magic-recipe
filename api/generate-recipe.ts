@@ -19,6 +19,7 @@ const JSON_RESPONSE_HEADERS = {
 
 type ApiErrorCode =
   | 'BAD_REQUEST'
+  | 'MISSING_API_KEY'
   | 'RATE_LIMIT'
   | 'QUOTA_EXCEEDED'
   | 'UPSTREAM_ERROR'
@@ -185,8 +186,8 @@ async function createRecipeResponse(request: Request): Promise<Response> {
 
       return errorResponse(
         500,
-        'INTERNAL_ERROR',
-        'Something went wrong on our side. Please try again.',
+        'MISSING_API_KEY',
+        'Missing API key. Set OPENAI_API_KEY in your environment, then restart the server.',
       )
     }
 
