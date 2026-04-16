@@ -1,5 +1,5 @@
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import {
   MAX_INGREDIENTS,
@@ -8,10 +8,18 @@ import {
   isIngredientCountValid,
   validateIngredientForAdd,
 } from '../lib/ingredients.ts'
+import {
+  createBookmarkedRecipe,
+  getBookmarkedRecipeId,
+  loadBookmarks,
+  saveBookmarks,
+} from './lib/bookmarks.ts'
+import { BookmarksList } from './components/BookmarksList.tsx'
 import { IngredientForm } from './components/IngredientForm.tsx'
 import { IngredientList } from './components/IngredientList.tsx'
 import { RecipeCard } from './components/RecipeCard.tsx'
 import { generateRecipe } from './lib/api.ts'
+import type { BookmarkedRecipe } from './types/bookmarks.ts'
 import type { Recipe } from './types/recipe.ts'
 
 function getAddIngredientErrorMessage(issue: IngredientAddIssue): string {
@@ -31,8 +39,35 @@ function App() {
   const [ingredientInput, setIngredientInput] = useState('')
   const [ingredients, setIngredients] = useState<string[]>([])
   const [recipe, setRecipe] = useState<Recipe | null>(null)
+  const [bookmarks, setBookmarks] = useState<BookmarkedRecipe[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [bookmarkMessage, setBookmarkMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    setBookmarks(loadBookmarks())
+  }, [])
+
+  const activeBookmarkId = recipe ? getBookmarkedRecipeId(recipe) : null
+  const isActiveRecipeBookmarked =
+    activeBookmarkId !== null &&
+    bookmarks.some((bookmark) => bookmark.id === activeBookmarkId)
+
+  function persistBookmarks(
+    nextBookmarks: BookmarkedRecipe[],
+    failureMessage: string,
+  ): boolean {
+    const didSave = saveBookmarks(nextBookmarks)
+
+    if (!didSave) {
+      setBookmarkMessage(failureMessage)
+      return false
+    }
+
+    setBookmarks(nextBookmarks)
+    setBookmarkMessage(null)
+    return true
+  }
 
   function handleAddIngredient() {
     const result = validateIngredientForAdd(ingredients, ingredientInput)
@@ -45,6 +80,7 @@ function App() {
     setIngredients((currentIngredients) => [...currentIngredients, result.ingredient])
     setIngredientInput('')
     setErrorMessage(null)
+    setBookmarkMessage(null)
   }
 
   function handleRemoveIngredient(ingredientToRemove: string) {
@@ -52,6 +88,51 @@ function App() {
       currentIngredients.filter((ingredient) => ingredient !== ingredientToRemove),
     )
     setErrorMessage(null)
+    setBookmarkMessage(null)
+  }
+
+  function handleToggleBookmark() {
+    if (!recipe) {
+      return
+    }
+
+    const recipeId = getBookmarkedRecipeId(recipe)
+    const existingBookmark = bookmarks.find((bookmark) => bookmark.id === recipeId)
+
+    if (existingBookmark) {
+      const nextBookmarks = bookmarks.filter((bookmark) => bookmark.id !== recipeId)
+
+      persistBookmarks(
+        nextBookmarks,
+        'This bookmark could not be removed on this device right now.',
+      )
+
+      return
+    }
+
+    const nextBookmarks = [createBookmarkedRecipe(recipe), ...bookmarks]
+
+    persistBookmarks(
+      nextBookmarks,
+      'This recipe could not be bookmarked on this device right now.',
+    )
+  }
+
+  function handleOpenBookmark(bookmark: BookmarkedRecipe) {
+    setRecipe(bookmark.recipe)
+    setErrorMessage(null)
+    setBookmarkMessage(null)
+  }
+
+  function handleRemoveBookmark(bookmarkToRemove: BookmarkedRecipe) {
+    const nextBookmarks = bookmarks.filter(
+      (bookmark) => bookmark.id !== bookmarkToRemove.id,
+    )
+
+    persistBookmarks(
+      nextBookmarks,
+      'This bookmark could not be removed on this device right now.',
+    )
   }
 
   async function handleSubmit() {
@@ -123,6 +204,12 @@ function App() {
           </section>
         ) : null}
 
+        {bookmarkMessage ? (
+          <section className="rounded-[1.75rem] border border-amber-300/20 bg-amber-950/25 px-5 py-4 text-sm leading-6 text-amber-100">
+            {bookmarkMessage}
+          </section>
+        ) : null}
+
         {isLoading ? (
           <section className="rounded-[2rem] border border-stone-800 bg-stone-950/65 p-6 backdrop-blur sm:p-8">
             <div className="space-y-3">
@@ -141,7 +228,11 @@ function App() {
         ) : null}
 
         {recipe ? (
-          <RecipeCard recipe={recipe} />
+          <RecipeCard
+            recipe={recipe}
+            isBookmarked={isActiveRecipeBookmarked}
+            onToggleBookmark={handleToggleBookmark}
+          />
         ) : !isLoading ? (
           <section className="rounded-[2rem] border border-dashed border-stone-700 bg-stone-950/35 p-6 sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-stone-400">
@@ -155,6 +246,13 @@ function App() {
             </p>
           </section>
         ) : null}
+
+        <BookmarksList
+          bookmarks={bookmarks}
+          activeBookmarkId={activeBookmarkId}
+          onOpenBookmark={handleOpenBookmark}
+          onRemoveBookmark={handleRemoveBookmark}
+        />
       </div>
     </main>
   )

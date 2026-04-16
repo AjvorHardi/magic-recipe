@@ -2,6 +2,13 @@
 
 Magic Recipe is a web app that suggests a recipe from a user's ingredient list using OpenAI.
 
+Current client-side features:
+
+- ingredient entry with trim and duplicate prevention
+- recipe generation through one Vercel API route
+- mock recipe mode for local development
+- saved recipe bookmarks with `localStorage`
+
 ## Stack
 
 - React + Vite + TypeScript
@@ -11,13 +18,14 @@ Magic Recipe is a web app that suggests a recipe from a user's ingredient list u
 
 ## Current Status
 
-Phase 0 through Phase 4 are complete:
+Phase 0 through Phase 5 are complete:
 
 - baseline cleanup
 - contract and validation setup
 - backend API route
 - frontend single-page MVP
 - deploy-readiness and smoke-test pass
+- bookmark saved recipes locally and reopen them later
 
 ## Environment Variables
 
@@ -54,6 +62,7 @@ Recommended full-stack local workflow:
 3. Run `npm run dev:vercel`
 4. Open the local URL printed by Vercel
 5. Add at least two ingredients and click `Do magic`
+6. Save a recipe bookmark and refresh the page to confirm it persists
 
 Recommended quick verification commands:
 
@@ -93,7 +102,8 @@ npx vercel --prod
 - open the production URL
 - add 2 to 4 ingredients
 - generate a recipe
-- verify the result card, error handling, and expandable steps
+- save and reopen a bookmark
+- verify the result card, error handling, expandable steps, and bookmark persistence
 
 ## API
 
