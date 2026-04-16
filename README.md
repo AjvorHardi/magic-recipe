@@ -9,6 +9,7 @@ Current client-side features:
 - local recipe caching for repeated ingredient combinations
 - mock recipe mode for local development
 - saved recipe bookmarks with `localStorage`
+- distinct UI handling for rate limits, quota issues, upstream failures, and invalid AI responses
 
 ## Stack
 
@@ -19,7 +20,7 @@ Current client-side features:
 
 ## Current Status
 
-Phase 0 through Phase 6 are complete:
+Phase 0 through Phase 7 are complete:
 
 - baseline cleanup
 - contract and validation setup
@@ -28,6 +29,7 @@ Phase 0 through Phase 6 are complete:
 - deploy-readiness and smoke-test pass
 - bookmark saved recipes locally and reopen them later
 - cache repeated ingredient combinations locally to avoid duplicate AI requests
+- harden API failure handling for rate limits, quota issues, and invalid responses
 
 ## Environment Variables
 
@@ -76,6 +78,14 @@ npm run smoke:api
 ```
 
 If the browser shows `Recipe API route was not found`, you likely started `npm run dev` instead of `npm run dev:vercel`.
+
+Error behavior now distinguishes:
+
+- retryable rate limits
+- API quota / billing exhaustion
+- upstream provider failures
+- invalid AI response payloads
+- unreadable or missing local API responses
 
 ## Deploying To Vercel
 
