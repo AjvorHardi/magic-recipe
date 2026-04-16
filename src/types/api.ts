@@ -7,6 +7,7 @@ export type GenerateRecipeRequest = {
 export type GenerateRecipeErrorCode =
   | 'BAD_REQUEST'
   | 'RATE_LIMIT'
+  | 'QUOTA_EXCEEDED'
   | 'UPSTREAM_ERROR'
   | 'INVALID_RESPONSE'
   | 'INTERNAL_ERROR'

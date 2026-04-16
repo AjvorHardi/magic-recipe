@@ -20,6 +20,7 @@ const JSON_RESPONSE_HEADERS = {
 type ApiErrorCode =
   | 'BAD_REQUEST'
   | 'RATE_LIMIT'
+  | 'QUOTA_EXCEEDED'
   | 'UPSTREAM_ERROR'
   | 'INVALID_RESPONSE'
   | 'INTERNAL_ERROR'
@@ -95,6 +96,21 @@ function buildRecipePrompt(ingredients: string[]): string {
     'Return one practical recipe suitable for a home cook.',
     'Keep the recipe concise and useful.',
   ].join('\n')
+}
+
+function isQuotaExceededError(
+  error: InstanceType<typeof OpenAI.APIError>,
+): boolean {
+  const errorMessage = error.message.toLocaleLowerCase()
+
+  return (
+    error.status === 429 &&
+    (error.code === 'insufficient_quota' ||
+      error.type === 'insufficient_quota' ||
+      errorMessage.includes('exceeded your current quota') ||
+      errorMessage.includes('billing') ||
+      errorMessage.includes('credits'))
+  )
 }
 
 async function generateRecipeWithOpenAI(
@@ -175,7 +191,31 @@ async function createRecipeResponse(request: Request): Promise<Response> {
     }
 
     if (error instanceof OpenAI.APIError) {
+      if (isQuotaExceededError(error)) {
+        console.error('OpenAI quota exceeded while generating recipe.', {
+          status: error.status,
+          code: error.code,
+          type: error.type,
+          name: error.name,
+          requestId: error.requestID,
+        })
+
+        return errorResponse(
+          429,
+          'QUOTA_EXCEEDED',
+          'Recipe generation is unavailable for this API project right now. Check API billing and limits, then try again.',
+        )
+      }
+
       if (error.status === 429) {
+        console.error('OpenAI rate limit while generating recipe.', {
+          status: error.status,
+          code: error.code,
+          type: error.type,
+          name: error.name,
+          requestId: error.requestID,
+        })
+
         return errorResponse(
           429,
           'RATE_LIMIT',
